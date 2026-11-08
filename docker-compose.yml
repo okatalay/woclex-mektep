@@ -1,0 +1,17 @@
+# Geliştirme: yalnızca veritabanı. Backend ve frontend yerelde çalışır.
+services:
+  mektep-postgres:
+    image: postgres:16-alpine
+    container_name: mektep-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mektep
+      POSTGRES_DB: mektep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env dosyasında POSTGRES_PASSWORD yok}
+    ports:
+      - "127.0.0.1:5462:5432"   # yalnızca yerel; asla 0.0.0.0
+    volumes:
+      - mektep_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mektep_pgdata:

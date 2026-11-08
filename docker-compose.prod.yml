@@ -1,0 +1,57 @@
+# CANLI ortam (mektep.woclex.com). Geliştirme veritabanından tamamen ayrı.
+# Güncelleme: ./deploy.sh  (yalnızca sahibi onaylayınca)
+name: mektep-prod
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mektep-prod-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mektep
+      POSTGRES_DB: mektep
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env.prod içinde POSTGRES_PASSWORD yok}
+    volumes:
+      - prod_pgdata:/var/lib/postgresql/data
+    networks: [internal]
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: mektep-prod-backend
+    restart: unless-stopped
+    depends_on: [postgres]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mektep:${POSTGRES_PASSWORD}@postgres:5432/mektep
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?.env.prod içinde JWT_SECRET_KEY yok}
+      COOKIE_SECURE: "true"
+      PUBLIC_BASE_URL: https://mektep.woclex.com
+    volumes:
+      - prod_data:/data
+    networks: [internal, woclex-net]
+
+  web:
+    image: nginx:1.27-alpine
+    container_name: mektep-prod-web
+    restart: unless-stopped
+    depends_on: [backend]
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    networks: [internal, woclex-net]
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=woclex-net"
+      - "traefik.http.routers.mektep-web.rule=Host(`mektep.woclex.com`)"
+      - "traefik.http.routers.mektep-web.entrypoints=websecure"
+      - "traefik.http.routers.mektep-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mektep-web.loadbalancer.server.port=80"
+
+networks:
+  internal:
+  woclex-net:
+    external: true
+
+volumes:
+  prod_pgdata:
+  prod_data:
